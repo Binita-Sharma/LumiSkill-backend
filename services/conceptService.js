@@ -26,8 +26,6 @@ Respond ONLY in this exact JSON format, no extra text before or after:
 }`
 
   const rawResponse = await askGemini(prompt)
-
-  // Clean up response in case Gemini wraps it in markdown code fences
   const cleaned = rawResponse.replace(/```json|```/g, '').trim()
 
   try {

@@ -2,7 +2,10 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { askGemini } from "./services/aiService.js";
-import { generateConcept } from "./services/conceptService.js";
+import { generateConcept, generateTopicList } from "./services/conceptService.js";
+import { getTopicsForSubject, saveTopics } from "./services/supabaseService.js";
+import { saveUserProfile, getUserProfile } from "./services/supabaseService.js";
+
 
 dotenv.config();
 
@@ -28,22 +31,6 @@ app.get("/api/test-ai", async (req, res) => {
   }
 });
 
-// TEMPORARY - just for testing, we'll remove this later
-app.get("/api/test-concept", async (req, res) => {
-  try {
-    const concept = await generateConcept("Trigonometry", {
-      name: "Rahul",
-      interests: ["Sports"],
-      favouriteSubjects: ["Mathematics"],
-      learningStyle: "visual",
-    });
-    res.json(concept);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Failed to generate concept" });
-  }
-});
-
 app.post("/api/concept", async (req, res) => {
   try {
     const { topic, studentProfile } = req.body;
@@ -59,6 +46,52 @@ app.post("/api/concept", async (req, res) => {
     res.status(500).json({ error: "Failed to generate concept" });
   }
 });
+
+app.get("/api/topics", async (req, res) => {
+  try {
+    const { subject, studentClass, board } = req.query;
+
+    if (!subject || !studentClass || !board) {
+      return res.status(400).json({ error: "subject, studentClass, and board are required" });
+    }
+
+    let topics = await getTopicsForSubject(subject, studentClass, board);
+
+    if (topics.length === 0) {
+      topics = await generateTopicList(subject, studentClass, board);
+      await saveTopics(subject, studentClass, board, topics);
+    }
+
+    res.json({ topics });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to get topics" });
+  }
+});
+
+
+app.post("/api/profile", async (req, res) => {
+  try {
+    const { userId, profileData } = req.body
+    if (!userId) return res.status(400).json({ error: "userId is required" })
+
+    const result = await saveUserProfile(userId, profileData)
+    res.json(result)
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({ error: "Failed to save profile" })
+  }
+})
+
+app.get("/api/profile/:userId", async (req, res) => {
+  try {
+    const profile = await getUserProfile(req.params.userId)
+    res.json(profile)
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({ error: "Failed to get profile" })
+  }
+})
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
